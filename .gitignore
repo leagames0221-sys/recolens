@@ -10,8 +10,14 @@ docs/evidence/tier_self_audit_2026_06_30.md
 *.env
 .tmp/
 notes/private/
-scripts/.private_wordlist.txt   # optional secret/term wordlist — never commit
-runs/                 # run manifests (generated output, not source)
+# optional secret/term wordlist — never commit
+scripts/.private_wordlist.txt
+# run manifests (generated output, not source)
+runs/
+# rendered demo video + temp (delivered out-of-band, not in repo)
+out_video/
+# local video-tooling (narration pipeline), not part of the OSS product
+scripts/produce_video.py
 .message_display.jsonl
 
 # === Python ===
