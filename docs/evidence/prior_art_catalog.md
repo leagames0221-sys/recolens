@@ -14,7 +14,7 @@
 | Two-Tower retrieval | https://docs.cloud.google.com/architecture/implement-two-tower-retrieval-large-scale-candidate-generation / https://www.uber.com/en/blog/innovative-recommendation-applications-using-two-tower-embeddings/ | 公開設計(コードでなく設計) | user塔/item塔→共有空間→ANN・時系列split→recall@k・索引更新 | 設計を縮約・自作 |
 
 ## 補足(stack 判断)
-- **rye / uv**: https://rye.astral.sh/ / https://docs.astral.sh/uv/ — Astral が rye を引取り、**rye は 2026 凍結(更新・セキュリティ更新なし)**、uv が後継。案件指定「rye(uv backend)」は **uv 直接採用で互換**。
+- **rye / uv**: https://rye.astral.sh/ / https://docs.astral.sh/uv/ — Astral が rye を引取り、**rye は 2026 凍結(更新・セキュリティ更新なし)**、uv が後継。「rye(uv backend)」は **uv 直接採用で互換**。
 - **pytrec_eval の注意**: 本体 MIT だが trec_eval は別ライセンス。recolens は ir_measures/pytrec_eval を **値突合の参照**として dev/test extras に置き、runtime 必須にはしない。
 
 ## 確認方法

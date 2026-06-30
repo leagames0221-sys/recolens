@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 // recolens canonical data contract.
-// これは「他システムが participate する際の通信契約」(案件: システム間通信に Protocol Buffer)。
-// ローカル pipeline は core/schema.py の dataclass(zero-dep)で動き、proto は wire 境界の
-// 正準スキーマ + codec(recolens/proto/codec.py、optional [proto] extra)として使う。
+// The typed, versioned schema for inter-service communication. The local pipeline
+// runs on the zero-dep dataclasses in core/schema.py; proto is the wire-boundary
+// schema + codec (recolens/proto/codec.py, optional [proto] extra).
 package recolens;
 
 // 投稿コンテンツ(創作物 / 記事)。
