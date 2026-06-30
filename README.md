@@ -5,7 +5,7 @@
 > engineer actually owns.
 
 ![ci](https://img.shields.io/badge/ci-green-brightgreen)
-![tests](https://img.shields.io/badge/tests-76%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-77%20passing-brightgreen)
 ![free](https://img.shields.io/badge/cost-%240-brightgreen)
 ![no-card](https://img.shields.io/badge/credit_card-not_required-brightgreen)
 ![local-llm](https://img.shields.io/badge/LLM-local%2Foptional-blue)
@@ -139,10 +139,19 @@ Zero default runtime deps; license allowlist (MIT/Apache-2.0/BSD/ISC) enforced b
 [ADR-0006](docs/adr/ADR-0006-supply-chain-defense.md).
 
 **Known dependency caveat:** the **default install has zero runtime dependencies
-and audits clean**. The optional `embed` extra pulls `torch` (via
-sentence-transformers), which currently carries 2 known CVEs (PYSEC-2026-139,
-CVE-2025-3000) with no published fix at the pinned version — disclosed here rather
-than hidden; it affects only the opt-in embedding layer, not the default path.
+and audits clean** (`pip-audit`). The optional `embed` extra pulls `torch` (via
+sentence-transformers), which currently carries 2 known advisories with no published
+fix at any version:
+
+- **PYSEC-2026-139** (High, local) — unsafe deserialization when loading **untrusted**
+  model/checkpoint files. recolens loads a single, **revision-pinned** model with
+  **`safetensors` enforced** (pickle refused) and never deserializes user-supplied
+  model files, so this path is not exercised.
+- **CVE-2025-3000** (Medium, local) — memory corruption in `torch.jit.script`, which
+  recolens does not call.
+
+Both are local-only, opt-in (absent from the default install), and disclosed here
+rather than hidden. The pins will be bumped once upstream ships a fix.
 
 ## License
 
