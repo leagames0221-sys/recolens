@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync (dev)
+        run: uv sync --extra dev
+      - name: Lint (ruff)
+        run: uv run ruff check .
+      - name: License audit (K-1)
+        run: uv run python scripts/audit_deps.py
+      - name: Tests (pytest, with negative cases)
+        run: uv run pytest
+      # golden 回帰ゲートは T-20 で追加(P2)。
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gitleaks
+        run: |
+          VERSION=8.24.3
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+      - name: Scan working tree for secrets
+        run: gitleaks dir . --redact -v

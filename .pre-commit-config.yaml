@@ -1,0 +1,19 @@
+# K-4 Layer 2: write-time 漏洩防止 + lint。
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: private-path-check
+        name: private path / secret-word sweep
+        entry: bash scripts/private_path_check.sh
+        language: system
+        pass_filenames: false

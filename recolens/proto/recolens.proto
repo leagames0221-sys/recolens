@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+// recolens canonical data contract.
+// これは「他システムが participate する際の通信契約」(案件: システム間通信に Protocol Buffer)。
+// ローカル pipeline は core/schema.py の dataclass(zero-dep)で動き、proto は wire 境界の
+// 正準スキーマ + codec(recolens/proto/codec.py、optional [proto] extra)として使う。
+package recolens;
+
+// 投稿コンテンツ(創作物 / 記事)。
+message Item {
+  string item_id = 1;
+  string title = 2;
+  string body = 3;
+  repeated string tags = 4;
+  string author_id = 5;
+  int64 created_ts = 6;   // epoch seconds
+}
+
+// 読者 / ユーザ。
+message User {
+  string user_id = 1;
+  repeated string interests = 2;
+  int64 created_ts = 3;
+}
+
+// 行動ログ 1 件(view / read / like 等)。
+message Interaction {
+  string user_id = 1;
+  string item_id = 2;
+  string event = 3;
+  int64 ts = 4;
+  float weight = 5;
+}
+
+message ScoredItem {
+  string item_id = 1;
+  float score = 2;
+}
+
+// 推薦 / 検索結果。
+message Recommendation {
+  string user_id = 1;
+  repeated ScoredItem items = 2;
+}
