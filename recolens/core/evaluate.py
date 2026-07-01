@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from typing import Protocol, runtime_checkable
 
-from recolens.core.metrics import aggregate_ir
+from recolens.core.metrics import aggregate_ir, item_coverage, novelty
 from recolens.core.schema import Interaction, Item
 
 
@@ -70,10 +70,22 @@ def run_eval(
     results: dict[str, dict[str, float]] = {}
     runs_by_ranker: dict[str, dict[str, list[str]]] = {}
 
+    # beyond-accuracy inputs (RecBole ItemCoverage / Novelty), from train history
+    n_items = len(items)
+    item_users: dict[str, set[str]] = defaultdict(set)
+    for it in train:
+        item_users[it.item_id].add(it.user_id)
+    item_user_count = {i: len(us) for i, us in item_users.items()}
+    n_users_train = len({it.user_id for it in train})
+
     for ranker in rankers:
         ranker.fit(items, train)
         runs = {u: ranker.rank(u, max(ks)) for u in users}
-        results[ranker.name] = aggregate_ir(qrels, runs, ks)
+        metrics = aggregate_ir(qrels, runs, ks)
+        rec_lists = list(runs.values())
+        metrics["Coverage"] = item_coverage(rec_lists, n_items)
+        metrics["Novelty"] = novelty(rec_lists, item_user_count, n_users_train)
+        results[ranker.name] = metrics
         runs_by_ranker[ranker.name] = runs
 
     return qrels, results, runs_by_ranker

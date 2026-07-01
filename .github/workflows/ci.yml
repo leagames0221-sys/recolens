@@ -24,7 +24,25 @@ jobs:
         run: uv run pytest
       - name: LTR headline (LambdaMART beats fixed fusion, [rank] extra)
         run: uv run --extra dev --extra rank pytest tests/test_reranker.py -k lambdamart -rA
-      # golden 回帰ゲートは T-20 で追加(P2)。
+      # golden regression gate runs inside the pytest step above
+      # (tests/test_eval_ab_golden.py); it fails on any drift > 1e-9.
+
+  extras:
+    # Exercise the optional extras so a missing/renamed dep in an extra cannot ship
+    # green (a hidden scikit-learn dep in [rank] slipped through before this job).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Functional smoke — vector + rank (light, no torch)
+        run: uv run --extra dev --extra vector --extra rank pytest tests/test_providers.py tests/test_reranker.py -rs
+      - name: Import smoke — embed + llm (catches dep-declaration breakage without model downloads)
+        run: |
+          uv run --extra embed python -c "import recolens.providers.embed_local; print('embed import OK')"
+          uv run --extra llm python -c "import recolens.providers.llm_ollama; print('llm import OK')"
 
   gitleaks:
     runs-on: ubuntu-latest

@@ -116,6 +116,12 @@ def _register_eval(sp: argparse.ArgumentParser) -> None:
     sp.add_argument("--ks", default="5,10", help="comma-separated cutoffs")
     sp.add_argument("--split", choices=["time"], default="time")
     sp.add_argument(
+        "--dataset",
+        choices=["synth", "movielens"],
+        default="synth",
+        help="synth=deterministic fixture (default); movielens=real ml-100k (fetch it first)",
+    )
+    sp.add_argument(
         "--reranker",
         choices=["logistic", "lightgbm"],
         default="logistic",
@@ -132,7 +138,13 @@ def _eval(args: argparse.Namespace) -> int:
     from recolens.packs.ugc.synth import generate
 
     ks = tuple(int(x) for x in args.ks.split(","))
-    data = generate(n_items=args.n_items, n_users=args.n_users, seed=args.seed)
+    dataset = getattr(args, "dataset", "synth")
+    if dataset == "movielens":
+        from recolens.datasets.movielens import load as load_movielens
+
+        data = load_movielens()
+    else:
+        data = generate(n_items=args.n_items, n_users=args.n_users, seed=args.seed)
     items = parse_items(data["items"]).valid
     interactions = parse_interactions(data["interactions"]).valid
 
@@ -149,6 +161,7 @@ def _eval(args: argparse.Namespace) -> int:
         run_dir,
         {
             "stage": "eval",
+            "dataset": dataset,
             "split": args.split,
             "seed": args.seed,
             "test_ratio": args.test_ratio,

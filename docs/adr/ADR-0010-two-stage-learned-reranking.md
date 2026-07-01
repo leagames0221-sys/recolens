@@ -55,10 +55,28 @@ sources.
 - **Neural ranker (DLRM/DCN).** Overkill for laptop scale and a heavy dep; GBDT
   LambdaMART is the standard, efficient choice under these constraints.
 
+## Real-data validation (added 2026-07-01)
+Run on **MovieLens 100k** through the identical harness
+(`recolens eval --dataset movielens`, see `docs/evidence/real_data_movielens.md`):
+
+| method | nDCG@10 | RR |
+|---|---|---|
+| **reranked · LambdaMART** | **0.168** | **0.323** |
+| reranked · logistic | 0.160 | 0.315 |
+| collaborative | 0.149 | 0.297 |
+| hybrid (fixed RRF) | 0.146 | 0.280 |
+
+**On real data the learned reranker beats every single signal and fixed fusion**
+(LambdaMART > collaborative +12.9% nDCG@10; the zero-dep logistic also wins). This is
+the industry-standard result the near-oracle synthetic fixture *cannot* show — which
+is the correct behaviour, and the reason the synthetic set is documented as a fixture,
+not a credibility source. Both regimes reported; neither tuned to a desired outcome.
+
 ## Consequences
 - `reranked` (logistic) is locked by the golden regression test; the LambdaMART
-  headline is guarded by a `skipif`-gated test that runs under the `[rank]` extra
-  (`tests/test_reranker.py::test_lambdamart_beats_fixed_rrf_and_linear`).
-- The portfolio now demonstrates the *current* industry architecture end-to-end
-  (retrieve → learned rank) and measures it honestly, including where it helps and
-  where it does not.
+  headline is guarded by a `skipif`-gated test under the `[rank]` extra
+  (`tests/test_reranker.py::test_lambdamart_beats_fixed_rrf_and_linear`); the
+  real-data win is guarded by `tests/test_movielens.py` (skipped unless fetched).
+- The portfolio demonstrates the *current* industry architecture end-to-end
+  (retrieve → learned rank) and validates it on real data, honestly reporting where
+  fusion helps (complementary signals) and where it cannot (a planted oracle).

@@ -14,6 +14,8 @@ notes/private/
 scripts/.private_wordlist.txt
 # run manifests (generated output, not source)
 runs/
+# real datasets downloaded on demand (MovieLens etc.) — never redistributed
+data/
 # rendered demo video + temp (delivered out-of-band, not in repo)
 out_video/
 # local video-tooling (narration pipeline), not part of the OSS product

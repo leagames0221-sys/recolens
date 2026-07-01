@@ -13,6 +13,7 @@ standard offline learning-to-rank setup — no test leakage. See ADR-0010.
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from collections.abc import Sequence
 
@@ -113,7 +114,15 @@ class RerankedRanker:
             fit_part, label_part = list(train), list(train)
         X, y, groups = self._build_training(items, fit_part, label_part)
         if X and sum(y) == 0:
-            # degenerate: no positive landed in a candidate pool -> label on full train
+            # Degenerate: no held-out positive landed in a candidate pool (sparse
+            # data / tiny split). Fall back to labelling on full train — note this
+            # trains labels==features, so the model can memorize rather than
+            # generalize. Surfaced (not silent) so the caller can distrust the run.
+            warnings.warn(
+                "RerankedRanker: no held-out positives in candidate pools; "
+                "falling back to full-train labels (memorization risk, weaker signal).",
+                stacklevel=2,
+            )
             X, y, groups = self._build_training(items, list(train), list(train))
         if X and sum(y) > 0:
             self._model.fit(X, y, groups)

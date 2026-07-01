@@ -5,7 +5,7 @@
 > engineer actually owns.
 
 ![ci](https://img.shields.io/badge/ci-green-brightgreen)
-![tests](https://img.shields.io/badge/tests-86%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-88%20passing-brightgreen)
 ![free](https://img.shields.io/badge/cost-%240-brightgreen)
 ![no-card](https://img.shields.io/badge/credit_card-not_required-brightgreen)
 ![local-llm](https://img.shields.io/badge/LLM-local%2Foptional-blue)
@@ -52,37 +52,47 @@ Embeddings, Qdrant, and Ollama are **optional layers**. The default install has
 
 ## Results (measured, reproducible)
 
-- **Metric correctness**: our `core/metrics.py` agrees with **ir_measures** to
-  **< 1e-9** on identical (qrels, run) input — the harness is trustworthy by
-  construction, not assertion. ([evidence](docs/evidence/metrics_definitions.md))
-- **The harness discriminates, and the ranking is stable.** Default
-  `recolens eval` (n=300/80, seed 42), nDCG@10 — reproduced across seeds
-  {42, 7, 123, 99, 2026} and locked by a golden test:
+- **Metric arithmetic is correct by construction**: `core/metrics.py` agrees with
+  **ir_measures** to **< 1e-9** on identical (qrels, run) input. (That proves the
+  formulas are right — *not* that a benchmark is trustworthy; the latter is
+  established by real-data validation, below.)
+  ([evidence](docs/evidence/metrics_definitions.md))
+- **Validated on real data (MovieLens 100k), not just a simulator.** Running the
+  *identical* harness on the standard public benchmark (1,682 items / 942 users):
+  the learned reranker beats every single signal **and** fixed fusion — LambdaMART
+  > collaborative by **+12.9% nDCG@10**, the logistic default also > collaborative.
+  This is the industry-standard result, on data recolens did not author.
+  ([evidence](docs/evidence/real_data_movielens.md); reproduce with
+  `python scripts/fetch_movielens.py` then `recolens eval --dataset movielens`)
+- **The synthetic set is a controlled fixture, not the credibility source.**
+  Default `recolens eval` (n=300/80, seed 42, stable across seeds {42, 7, 123, 99,
+  2026}, golden-locked) plants a near-oracle co-read signal, so collaborative wins
+  *by construction* — which is exactly what makes it a good unit test ("does the
+  harness recover a known-planted signal, and refuse to let blind fusion beat an
+  oracle?"). It is **not** evidence that a method is good; the real-data table above
+  is.
 
-  | method | nDCG@10 | RR | role |
+  | method | nDCG@10 | RR | role (on the fixture) |
   |---|---|---|---|
-  | collaborative | **0.469** | 0.772 | best single (sharp co-read signal) |
+  | collaborative | **0.469** | 0.772 | planted near-oracle signal |
   | reranked · LambdaMART | 0.279 | 0.480 | learned stage-2 rank (`[rank]` extra) |
   | hybrid | 0.235 | 0.324 | fixed-weight RRF fusion |
   | reranked · logistic | 0.207 | 0.315 | learned linear fusion (default, zero-dep) |
-  | content | 0.201 | 0.325 | strong complementary signal |
-  | popularity | 0.027 | 0.045 | baseline — beaten ~9–17× by learned methods |
+  | content | 0.201 | 0.325 | complementary signal |
+  | popularity | 0.027 | 0.045 | baseline |
 
-- **The industry-standard fix, implemented and measured.** The 2025-2026 answer to
-  "fixed fusion can't beat a sharp signal" is a **two-stage retrieve → learned-rank**
-  pipeline: signals retrieve candidates, then a model *learns* to rank them.
-  recolens ships it — a zero-dep logistic reranker by default, and **LightGBM
-  LambdaMART** (the production GBDT learning-to-rank workhorse) via `--reranker
-  lightgbm`. LambdaMART beats fixed-weight RRF fusion by **+18.7% nDCG@10 / +48% RR**
-  (and the linear learned combiner by +34%) — exactly the expected ordering
-  (non-linear listwise > fixed > linear).
-  ([ADR-0010](docs/adr/ADR-0010-two-stage-learned-reranking.md),
-  [evidence](docs/evidence/ltr_industry_standard_2026.md))
-- **An honest negative result.** No combiner beats *collaborative* here: on this
-  synthetic workload the co-read signal is **near-oracle** (positives are generated
-  from co-read cohorts), and fusion only helps when signals are *complementary*, not
-  when one is already near-oracle. The harness surfaces this rather than tuning the
-  data to manufacture a win. ([ADR-0009](docs/adr/ADR-0009-hybrid-fusion-and-negative-result.md))
+- **The industry-standard fix, implemented and measured across both regimes.** The
+  2025-2026 answer to "fixed fusion can't beat a sharp signal" is a **two-stage
+  retrieve → learned-rank** pipeline (signals retrieve, a model *learns* to rank).
+  recolens ships it — a zero-dep logistic reranker by default, **LightGBM LambdaMART**
+  (the production GBDT learning-to-rank workhorse) via `--reranker lightgbm`.
+  - **On real data (MovieLens): learned reranking wins outright** — LambdaMART beats
+    the best single signal by +12.9% nDCG@10, even the logistic default beats it.
+  - **On the near-oracle fixture**: it beats fixed RRF fusion (+18.7% nDCG@10 / +48% RR)
+    but honestly *cannot* beat the planted oracle — fusion helps for complementary
+    signals, not against an oracle. Both regimes reported; neither tuned to a desired
+    outcome. ([ADR-0010](docs/adr/ADR-0010-two-stage-learned-reranking.md),
+    [evidence](docs/evidence/ltr_industry_standard_2026.md))
 - **A-B simulation agrees**: `recolens ab --a content --b collab` →
   hit-rate@10 0.70 → 0.90, **+28.6%**, 95% CI [+0.09, +0.33], decision "B wins"
   (and identical variants correctly return *inconclusive*).
@@ -113,12 +123,24 @@ uv sync --extra rank    # LightGBM LambdaMART stage-2 reranker; falls back to th
 uv run --extra rank recolens eval --reranker lightgbm
 ```
 
+Real-data validation (MovieLens 100k — downloaded on demand, not vendored):
+
+```bash
+python scripts/fetch_movielens.py                       # official host + SHA-256 pin
+uv run --extra rank recolens eval --dataset movielens --reranker lightgbm
+```
+
 > **Note (protobuf):** run via `uv run` (or `uv sync` first). The committed
 > generated code targets the protobuf runtime pinned in `uv.lock`; an older
 > system-wide protobuf raises a version error by design — see
 > [ADR-0007](docs/adr/ADR-0007-protobuf-contract.md).
 
 ## Design & decisions
+
+> **Scope:** the **evaluation harness** is the load-bearing claim (metric correctness +
+> real-data validation + method selection). The embedding/Qdrant/LLM/Protobuf layers
+> are capability demos wired through the same contracts — deliberately optional, not
+> the thesis.
 
 - 2-layer `core/` + `packs/ugc/`; deterministic core, optional heavy layers.
 - **Two-stage retrieve → learned rank** (industry-standard): signals retrieve
@@ -131,10 +153,12 @@ uv run --extra rank recolens eval --reranker lightgbm
 
 ## Limitations (honest)
 
-- **Synthetic data.** Items/users/interactions come from a seeded, two-signal
-  simulator. Absolute metric values are illustrative; the **relative, reproducible**
-  comparisons (collab vs content vs hybrid vs popularity, Qdrant vs brute force) are
-  the point. No real user data is used — by design (privacy & security).
+- **Default data is a synthetic *fixture*, not the credibility source.** The seeded
+  generator plants a known signal so the harness has a deterministic unit test (it
+  must recover the planted signal, and refuse to let blind fusion beat an oracle).
+  Real-world claims rest on the **MovieLens 100k** validation (see Results / evidence),
+  run through the identical harness. No real *user* data is vendored — MovieLens is
+  downloaded on demand and never redistributed (GroupLens license).
 - **Synthetic data cannot fairly rate *semantic* embeddings.** Its content signal
   is literal themed-token overlap, which actually favors the deterministic hash
   embedder over semantic e5 (we measured e5 ≈ −11% nDCG@10 here). So we do **not**
@@ -150,11 +174,12 @@ uv run --extra rank recolens eval --reranker lightgbm
   weight-download step, intentionally not run in CI.
 - **"Two-tower" here is a reduced content/collaborative retrieval**, not a trained
   dual-encoder. The eval harness is the headline, not SOTA ranking accuracy.
-- **The learned reranker's win is workload-dependent, shown honestly.** It beats
-  fixed-weight fusion, but not the near-oracle single signal on this synthetic data —
-  learned rank pays off when signals are genuinely complementary (real, noisier data).
-  Features here are the signals' rank-reciprocals; richer features (recency, author,
-  session) would widen the margin. See ADR-0010.
+- **The learned reranker wins on real data, not on the fixture — shown honestly.**
+  On MovieLens it beats every single signal and fixed fusion; on the near-oracle
+  synthetic fixture it beats fusion but cannot beat the planted oracle (expected).
+  Features are currently the four signals' rank-reciprocals; richer features
+  (recency, author, session, embedding score) would widen the real-data margin. See
+  ADR-0010.
 
 ## Security posture
 
