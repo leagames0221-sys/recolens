@@ -22,6 +22,8 @@ jobs:
         run: uv run python scripts/audit_deps.py
       - name: Tests (pytest, with negative cases)
         run: uv run pytest
+      - name: LTR headline (LambdaMART beats fixed fusion, [rank] extra)
+        run: uv run --extra dev --extra rank pytest tests/test_reranker.py -k lambdamart -rA
       # golden 回帰ゲートは T-20 で追加(P2)。
 
   gitleaks:

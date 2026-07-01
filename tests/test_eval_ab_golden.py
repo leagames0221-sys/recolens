@@ -23,11 +23,14 @@ def _run_default_eval():
     items = parse_items(data["items"]).valid
     inter = parse_interactions(data["interactions"]).valid
     train, test = time_split(inter, 0.3)
+    from recolens.packs.ugc.reco_reranked import RerankedRanker
+
     rankers = [
         PopularityRanker(),
         ContentRanker(dim=64),
         CollaborativeRanker(),
         HybridRanker(dim=64),
+        RerankedRanker(dim=64),  # default logistic reranker (dependency-free)
     ]
     _q, results, _r = run_eval(items, train, test, rankers, ks=(5, 10))
     return results

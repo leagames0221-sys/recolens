@@ -5,7 +5,7 @@
 > engineer actually owns.
 
 ![ci](https://img.shields.io/badge/ci-green-brightgreen)
-![tests](https://img.shields.io/badge/tests-77%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-86%20passing-brightgreen)
 ![free](https://img.shields.io/badge/cost-%240-brightgreen)
 ![no-card](https://img.shields.io/badge/credit_card-not_required-brightgreen)
 ![local-llm](https://img.shields.io/badge/LLM-local%2Foptional-blue)
@@ -41,7 +41,7 @@ commands:
 |---|---|
 | `ingest` | load Item/User/Interaction via a Protocol Buffers schema (rejects malformed records with counts) |
 | `index` / `search` | embed items, build a vector index, kNN search |
-| `recommend` | content / collaborative / hybrid top-N (with cold-start fallback) |
+| `recommend` | content / collaborative / hybrid / **reranked** top-N (with cold-start fallback) |
 | `eval` | time-split offline metrics: Recall@K / nDCG / MRR / MAP / Coverage / Novelty |
 | `ab` | offline A-B simulation with a KPI (hit-rate) + bootstrap 95% CI + decision |
 | `bench` | embedding/ANN cost × latency × memory trade-off report |
@@ -62,14 +62,27 @@ Embeddings, Qdrant, and Ollama are **optional layers**. The default install has
   | method | nDCG@10 | RR | role |
   |---|---|---|---|
   | collaborative | **0.469** | 0.772 | best single (sharp co-read signal) |
-  | hybrid | 0.235 | 0.324 | robust all-rounder (always > content, > popularity) |
+  | reranked · LambdaMART | 0.279 | 0.480 | learned stage-2 rank (`[rank]` extra) |
+  | hybrid | 0.235 | 0.324 | fixed-weight RRF fusion |
+  | reranked · logistic | 0.207 | 0.315 | learned linear fusion (default, zero-dep) |
   | content | 0.201 | 0.325 | strong complementary signal |
   | popularity | 0.027 | 0.045 | baseline — beaten ~9–17× by learned methods |
 
-- **An honest negative result.** The hybrid does **not** beat collaborative here:
-  when one signal is much sharper, rank fusion dilutes it. The harness surfaces
-  this, so the production choice on this workload is collaborative — not blind
-  fusion. ([ADR-0009](docs/adr/ADR-0009-hybrid-fusion-and-negative-result.md))
+- **The industry-standard fix, implemented and measured.** The 2025-2026 answer to
+  "fixed fusion can't beat a sharp signal" is a **two-stage retrieve → learned-rank**
+  pipeline: signals retrieve candidates, then a model *learns* to rank them.
+  recolens ships it — a zero-dep logistic reranker by default, and **LightGBM
+  LambdaMART** (the production GBDT learning-to-rank workhorse) via `--reranker
+  lightgbm`. LambdaMART beats fixed-weight RRF fusion by **+18.7% nDCG@10 / +48% RR**
+  (and the linear learned combiner by +34%) — exactly the expected ordering
+  (non-linear listwise > fixed > linear).
+  ([ADR-0010](docs/adr/ADR-0010-two-stage-learned-reranking.md),
+  [evidence](docs/evidence/ltr_industry_standard_2026.md))
+- **An honest negative result.** No combiner beats *collaborative* here: on this
+  synthetic workload the co-read signal is **near-oracle** (positives are generated
+  from co-read cohorts), and fusion only helps when signals are *complementary*, not
+  when one is already near-oracle. The harness surfaces this rather than tuning the
+  data to manufacture a win. ([ADR-0009](docs/adr/ADR-0009-hybrid-fusion-and-negative-result.md))
 - **A-B simulation agrees**: `recolens ab --a content --b collab` →
   hit-rate@10 0.70 → 0.90, **+28.6%**, 95% CI [+0.09, +0.33], decision "B wins"
   (and identical variants correctly return *inconclusive*).
@@ -94,6 +107,10 @@ Optional layers (off by default, still no credit card):
 uv sync --extra embed   # real local embeddings (sentence-transformers e5/BGE)
 uv sync --extra vector  # Qdrant backend (local mode, no docker needed); auto-fallback to in-memory
 uv sync --extra llm     # local Ollama for classify / moderate; falls back to deterministic rules
+uv sync --extra rank    # LightGBM LambdaMART stage-2 reranker; falls back to the logistic reranker
+
+# then, e.g., compare the learned reranker against the fixed-weight fusion:
+uv run --extra rank recolens eval --reranker lightgbm
 ```
 
 > **Note (protobuf):** run via `uv run` (or `uv sync` first). The committed
@@ -104,6 +121,9 @@ uv sync --extra llm     # local Ollama for classify / moderate; falls back to de
 ## Design & decisions
 
 - 2-layer `core/` + `packs/ugc/`; deterministic core, optional heavy layers.
+- **Two-stage retrieve → learned rank** (industry-standard): signals retrieve
+  candidates, a learned reranker (logistic default / LightGBM LambdaMART) orders
+  them; trained on a within-train split with no test leakage ([ADR-0010](docs/adr/ADR-0010-two-stage-learned-reranking.md)).
 - Metrics follow **BEIR / ir_measures** definitions (no home-grown metrics).
 - Provider ABCs with env swap (`EMBED_PROVIDER` / `VECTOR_BACKEND` / `LLM_PROVIDER`).
 - All choices recorded as ADRs: [`docs/adr/`](docs/adr/). Prior art:
@@ -130,6 +150,11 @@ uv sync --extra llm     # local Ollama for classify / moderate; falls back to de
   weight-download step, intentionally not run in CI.
 - **"Two-tower" here is a reduced content/collaborative retrieval**, not a trained
   dual-encoder. The eval harness is the headline, not SOTA ranking accuracy.
+- **The learned reranker's win is workload-dependent, shown honestly.** It beats
+  fixed-weight fusion, but not the near-oracle single signal on this synthetic data —
+  learned rank pays off when signals are genuinely complementary (real, noisier data).
+  Features here are the signals' rank-reciprocals; richer features (recency, author,
+  session) would widen the margin. See ADR-0010.
 
 ## Security posture
 

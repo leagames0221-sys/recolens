@@ -19,6 +19,8 @@ embed = ["sentence-transformers>=2.7", "numpy>=1.24"]
 vector = ["qdrant-client>=1.9"]
 # ローカル LLM(分類/不正検知)。LLM_PROVIDER=ollama の時のみ必要。
 llm = ["ollama>=0.2"]
+# 学習型リランカー(stage-2 LambdaMART)。--reranker lightgbm の時のみ必要。LightGBM=MIT。
+rank = ["lightgbm>=4.0"]
 # 開発・検証。protoc は grpcio-tools 同梱を使う(system protoc 不要)。
 dev = [
   "pytest>=8",
@@ -52,3 +54,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+    # cosmetic: we predict on plain float lists (no column names) by design
+    "ignore:X does not have valid feature names:UserWarning",
+]

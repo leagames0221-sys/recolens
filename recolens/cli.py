@@ -115,6 +115,12 @@ def _register_eval(sp: argparse.ArgumentParser) -> None:
     sp.add_argument("--test-ratio", type=float, default=0.3)
     sp.add_argument("--ks", default="5,10", help="comma-separated cutoffs")
     sp.add_argument("--split", choices=["time"], default="time")
+    sp.add_argument(
+        "--reranker",
+        choices=["logistic", "lightgbm"],
+        default="logistic",
+        help="stage-2 model for 'reranked' (logistic=default/zero-dep; lightgbm=[rank] extra)",
+    )
     sp.add_argument("--out", default=None, help="run dir (default: runs/<ts>)")
     sp.set_defaults(_handler=_eval)
 
@@ -131,7 +137,8 @@ def _eval(args: argparse.Namespace) -> int:
     interactions = parse_interactions(data["interactions"]).valid
 
     train, test = time_split(interactions, test_ratio=args.test_ratio)
-    rankers = [_make_ranker(m, args.dim) for m in _METHODS]
+    reranker = getattr(args, "reranker", "logistic")
+    rankers = [_make_ranker(m, args.dim, reranker) for m in _METHODS]
     _qrels, results, _runs = run_eval(items, train, test, rankers, ks=ks)
 
     metric_names = sorted({m for r in results.values() for m in r})
@@ -213,10 +220,21 @@ def _search(args: argparse.Namespace) -> int:
     return 0
 
 
-_METHODS = ("popularity", "content", "collab", "hybrid")
+_METHODS = ("popularity", "content", "collab", "hybrid", "reranked")
 
 
-def _make_ranker(method: str, dim: int):
+def _make_reranker_model(kind: str):
+    """logistic = dependency-free default (CI); lightgbm = LambdaMART ([rank] extra)."""
+    if kind == "lightgbm":
+        from recolens.providers.rank_lightgbm import LightGBMReranker
+
+        return LightGBMReranker()
+    from recolens.core.rank import LogisticReranker
+
+    return LogisticReranker()
+
+
+def _make_ranker(method: str, dim: int, reranker: str = "logistic"):
     from recolens.packs.ugc.baselines import ContentRanker, PopularityRanker
     from recolens.packs.ugc.reco_collab import CollaborativeRanker
     from recolens.packs.ugc.reco_hybrid import HybridRanker
@@ -229,6 +247,10 @@ def _make_ranker(method: str, dim: int):
         return CollaborativeRanker()
     if method == "hybrid":
         return HybridRanker(dim=dim)
+    if method == "reranked":
+        from recolens.packs.ugc.reco_reranked import RerankedRanker
+
+        return RerankedRanker(dim=dim, model=_make_reranker_model(reranker))
     raise ValueError(f"unknown method: {method}")
 
 
