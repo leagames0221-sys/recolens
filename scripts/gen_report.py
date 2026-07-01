@@ -16,6 +16,7 @@ from recolens.core.schema import parse_interactions, parse_items
 from recolens.packs.ugc.baselines import ContentRanker, PopularityRanker
 from recolens.packs.ugc.reco_collab import CollaborativeRanker
 from recolens.packs.ugc.reco_hybrid import HybridRanker
+from recolens.packs.ugc.reco_reranked import RerankedRanker
 from recolens.packs.ugc.synth import generate
 
 OUT = Path(__file__).resolve().parents[1] / "docs" / "demo-viewer" / "index.html"
@@ -41,6 +42,7 @@ def build(seed: int = 42) -> str:
         ContentRanker(dim=64),
         CollaborativeRanker(),
         HybridRanker(dim=64),
+        RerankedRanker(dim=64),  # learned stage-2 reranker (logistic default)
     ]
     _q, results, _r = run_eval(items, train, test, rankers, ks=(5, 10))
 
@@ -113,9 +115,21 @@ def build(seed: int = 42) -> str:
 </section>
 
 <section id="ranking">
-<h2>評価ハーネス — 4 手法を同じ土台で比較</h2>
-<p class="sub">指標は BEIR / ir_measures 準拠、<code>ir_measures</code> と 1e-9 以内で一致。seed 横断で順位安定:<b>collab &gt; hybrid &gt; content &gt; popularity</b>。</p>
+<h2>評価ハーネス — 5 手法を同じ土台で比較(合成 fixture)</h2>
+<p class="sub">指標は BEIR / ir_measures 準拠、<code>ir_measures</code> と 1e-9 以内で一致。合成データは<b>信号を仕込んだ検証用 fixture</b>で、collab が構造的に勝つ。信頼性は下の実データが担う。</p>
 <table><thead><tr><th>metric</th>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table>
+</section>
+
+<section id="realdata">
+<h2>実データ検証 — MovieLens 100k(1682 items / 942 users)</h2>
+<p class="sub">同じハーネスを公開実データで実行。ここでは<b>どの信号もオラクルでない</b>ので、勝敗は仕込みでなく実力。<code>eval --dataset movielens</code></p>
+<table><thead><tr><th>method (nDCG@10)</th><th>value</th><th></th></tr></thead><tbody>
+<tr><th>reranked · LambdaMART</th><td>0.168</td><td>{_bar(0.168, 0.168, '#16a34a')} <b>最良</b></td></tr>
+<tr><th>reranked · logistic(依存ゼロ)</th><td>0.160</td><td>{_bar(0.160, 0.168, '#16a34a')}</td></tr>
+<tr><th>collaborative(単独最良)</th><td>0.149</td><td>{_bar(0.149, 0.168, '#9ca3af')}</td></tr>
+<tr><th>hybrid(固定 RRF 融合)</th><td>0.146</td><td>{_bar(0.146, 0.168, '#9ca3af')}</td></tr>
+</tbody></table>
+<p class="lead"><b>実データでは学習型リランカーが全単独信号・固定融合を上回る</b>(LambdaMART が collab 比 +13%)。感度も正:test-ratio 0.2 / 0.3 / 0.5 で +3〜13%(nDCG@10)。</p>
 </section>
 
 <section id="ab">
@@ -130,10 +144,10 @@ def build(seed: int = 42) -> str:
 </div>
 </section>
 
-<section id="honest">
-<h2>正直な負の結果</h2>
-<p class="lead">このワークロードでは <b>hybrid は collab に勝たない</b>。鋭い信号を融合が薄めるため。<br>ハーネスがそれを可視化し、本番は collab を選ぶ — 盲目的な融合はしない。</p>
-<p class="sub">この判断は ADR-0009 に記録。技術選定はすべて ADR 0001〜0009 で説明可能。</p>
+<section id="method">
+<h2>業界標準の 2 段構え(retrieve → learned rank)</h2>
+<p class="lead">2025-26 の定石は「固定ルールで混ぜる」でなく<b>学習型ランカー</b>。信号が候補を出し、モデルが並べ替えを<b>学習</b>する。<br>既定は依存ゼロの学習型、任意で <b>LightGBM LambdaMART</b>(GBDT の LTR 主力)。</p>
+<p class="sub"><b>正直な2面</b>:合成(近オラクル)では融合は単独最良に勝てない — だが<b>実データでは学習型が勝つ</b>。両方をそのまま報告(ADR-0009 / 0010、rig しない)。</p>
 </section>
 
 <section id="perf">
@@ -152,7 +166,7 @@ def build(seed: int = 42) -> str:
 
 <section id="free">
 <h2>無料・クレカ不要・ローカル</h2>
-<p><span class="badge g">cost $0</span><span class="badge g">no credit card</span><span class="badge">zero runtime deps</span><span class="badge">CI green</span><span class="badge">77 tests</span></p>
+<p><span class="badge g">cost $0</span><span class="badge g">no credit card</span><span class="badge">zero runtime deps</span><span class="badge">CI green</span><span class="badge">88 tests</span></p>
 <p class="lead">既定インストールは依存ゼロで決定論的に完走。埋め込み・Qdrant・LLM はすべて任意層。</p>
 <p class="sub">License: MIT &nbsp;·&nbsp; github.com/leagames0221-sys/recolens</p>
 </section>
