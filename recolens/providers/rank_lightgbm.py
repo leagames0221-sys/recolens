@@ -37,8 +37,10 @@ class LightGBMReranker:
 
     @staticmethod
     def available() -> bool:
+        # LGBMRanker (sklearn API) needs both lightgbm and scikit-learn.
         try:
             import lightgbm  # noqa: F401
+            import sklearn  # noqa: F401
 
             return True
         except ImportError:

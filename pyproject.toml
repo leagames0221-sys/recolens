@@ -19,8 +19,9 @@ embed = ["sentence-transformers>=2.7", "numpy>=1.24"]
 vector = ["qdrant-client>=1.9"]
 # ローカル LLM(分類/不正検知)。LLM_PROVIDER=ollama の時のみ必要。
 llm = ["ollama>=0.2"]
-# 学習型リランカー(stage-2 LambdaMART)。--reranker lightgbm の時のみ必要。LightGBM=MIT。
-rank = ["lightgbm>=4.0"]
+# 学習型リランカー(stage-2 LambdaMART)。--reranker lightgbm の時のみ必要。
+# LightGBM=MIT、scikit-learn(LGBMRanker sklearn API に必須)=BSD-3。
+rank = ["lightgbm>=4.0", "scikit-learn>=1.3"]
 # 開発・検証。protoc は grpcio-tools 同梱を使う(system protoc 不要)。
 dev = [
   "pytest>=8",
