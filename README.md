@@ -58,12 +58,14 @@ Embeddings, Qdrant, and Ollama are **optional layers**. The default install has
   established by real-data validation, below.)
   ([evidence](docs/evidence/metrics_definitions.md))
 - **Validated on real data (MovieLens 100k), not just a simulator.** Running the
-  *identical* harness on the standard public benchmark (1,682 items / 942 users):
-  the learned reranker beats every single signal **and** fixed fusion — LambdaMART
-  > collaborative by **+12.9% nDCG@10**, the logistic default also > collaborative.
-  This is the industry-standard result, on data recolens did not author.
-  ([evidence](docs/evidence/real_data_movielens.md); reproduce with
-  `python scripts/fetch_movielens.py` then `recolens eval --dataset movielens`)
+  *identical* harness on the standard public benchmark (1,682 items / 942 users), on
+  **nDCG@10** the learned reranker beats the best single signal (collaborative) at
+  every tested hold-out ratio — LambdaMART by **+13% (ratio 0.3)**, and the zero-dep
+  logistic default is positive across ratios {0.2, 0.3, 0.5} (the more robust winner).
+  The margin narrows as the hold-out grows, and collaborative edges the reranker at
+  rank-1 — so this is an nDCG@10 result, reported with its sensitivity, not a
+  cherry-picked cell. ([evidence + sensitivity table](docs/evidence/real_data_movielens.md);
+  reproduce with `python scripts/fetch_movielens.py` then `recolens eval --dataset movielens`)
 - **The synthetic set is a controlled fixture, not the credibility source.**
   Default `recolens eval` (n=300/80, seed 42, stable across seeds {42, 7, 123, 99,
   2026}, golden-locked) plants a near-oracle co-read signal, so collaborative wins
@@ -86,8 +88,9 @@ Embeddings, Qdrant, and Ollama are **optional layers**. The default install has
   retrieve → learned-rank** pipeline (signals retrieve, a model *learns* to rank).
   recolens ships it — a zero-dep logistic reranker by default, **LightGBM LambdaMART**
   (the production GBDT learning-to-rank workhorse) via `--reranker lightgbm`.
-  - **On real data (MovieLens): learned reranking wins outright** — LambdaMART beats
-    the best single signal by +12.9% nDCG@10, even the logistic default beats it.
+  - **On real data (MovieLens), on nDCG@10: learned reranking wins** — LambdaMART
+    beats the best single signal by +13% (ratio 0.3), positive across ratios; the
+    zero-dep logistic is the more robust winner (see sensitivity table).
   - **On the near-oracle fixture**: it beats fixed RRF fusion (+18.7% nDCG@10 / +48% RR)
     but honestly *cannot* beat the planted oracle — fusion helps for complementary
     signals, not against an oracle. Both regimes reported; neither tuned to a desired

@@ -18,7 +18,7 @@ POS_THRESHOLD = 4  # rating >= 4 (of 5) = positive; standard implicit binarizati
 
 # u.item genre columns, in file order (README: 19 flags after the first 5 fields).
 GENRES = (
-    "unknown", "Action", "Adventure", "Animation", "Children", "Comedy", "Crime",
+    "unknown", "Action", "Adventure", "Animation", "Children's", "Comedy", "Crime",
     "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery",
     "Romance", "Sci-Fi", "Thriller", "War", "Western",
 )

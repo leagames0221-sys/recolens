@@ -6,7 +6,10 @@ A ``Ranker`` is any object that can ``fit(items, train_interactions)`` and
 them on identical ground truth.
 
 Split policy: per-user temporal hold-out — each user's latest ``test_ratio`` of
-interactions (by ts) are the held-out ground truth; the rest is history.
+interactions (by ts) are the held-out ground truth; the rest is history. Ties on
+``ts`` fall back to a deterministic ``item_id`` tiebreak (so the split is
+reproducible but *not* strictly temporal where timestamps do not discriminate —
+e.g. MovieLens records ratings in bulk sessions at second granularity).
 """
 
 from __future__ import annotations

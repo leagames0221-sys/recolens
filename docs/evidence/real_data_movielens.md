@@ -32,11 +32,26 @@ Reproduce: `python scripts/fetch_movielens.py` then
 | content (genre-tag only) | 0.025 | 0.058 |
 
 ## What it establishes
-- **On real data, learned reranking beats every single signal *and* fixed fusion.**
-  LambdaMART > best single signal (collaborative) by **+12.9% nDCG@10 / +8.8% RR**;
-  > fixed-weight RRF hybrid by **+15.5% nDCG@10**. Even the dependency-free logistic
-  reranker beats collaborative (+7.6% nDCG@10). This is the industry-standard result
-  the synthetic near-oracle setup could not show.
+- **On nDCG@10, learned reranking beats the best single signal (collaborative) at
+  every tested split** — and also beats the fixed-weight RRF hybrid. This is the
+  industry-standard result the synthetic near-oracle setup could not show.
+
+### Sensitivity (nDCG@10, so the win isn't a single-config artifact)
+| test-ratio | collaborative | reranked · logistic | reranked · LambdaMART |
+|---|---|---|---|
+| 0.2 | 0.108 | 0.116 (**+7.1%**) | 0.118 (**+9.0%**) |
+| 0.3 (headline) | 0.149 | 0.160 (**+7.6%**) | 0.168 (**+13.0%**) |
+| 0.5 | 0.231 | 0.238 (**+3.3%**) | 0.241 (**+4.6%**) |
+
+- Both learned rerankers beat collaborative on nDCG@10 at all three ratios; the
+  margin narrows as the hold-out grows (less training signal). LambdaMART leads at
+  ratio 0.3; the **dependency-free logistic reranker is positive across all ratios**
+  and is the more robust default.
+- **Honest scope of the claim.** The win is an **nDCG@10** result. It does *not*
+  hold at every cutoff/config: at rank-1 (nDCG@1) collaborative slightly edges the
+  reranker, and on MRR at the 0.5 hold-out the margin narrows/flips. We report the
+  cutoff we headline (nDCG@10) and its sensitivity rather than cherry-picking the
+  best cell.
 - **The harness discriminates consistently across both regimes** — it recovers the
   planted signal on the fixture *and* ranks methods sensibly on real data. That is
   the actual evidence that the evaluation is trustworthy, not the metric arithmetic
@@ -45,8 +60,12 @@ Reproduce: `python scripts/fetch_movielens.py` then
   (synthetic), but *does* beat every signal when signals are complementary and noisy
   (real). Both are reported; neither is tuned to a desired outcome.
 
-## Scope note
-Content is weak here because the only content signal from ml-100k is coarse genre
-tags (19 genres) over a hash embedder — not semantic text. This is a property of the
-dataset's features, not the harness; richer item text would lift the content and
-embedding rows.
+## Scope notes
+- **Content is weak here** because the only content signal from ml-100k is coarse
+  genre tags (19 genres) over a hash embedder — not semantic text. A property of the
+  dataset's features, not the harness; richer item text would lift the content row.
+- **The temporal split is only partly temporal on ml-100k.** ~98% of users have at
+  least one tied rating timestamp (ratings are entered in bulk sessions at second
+  granularity), so for ~39% of interactions the hold-out is decided by the
+  deterministic `item_id` tiebreak, not by time. The split is reproducible and
+  leak-free, but "temporal hold-out" overstates it on this dataset.

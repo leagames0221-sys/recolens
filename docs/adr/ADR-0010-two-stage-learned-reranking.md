@@ -66,11 +66,15 @@ Run on **MovieLens 100k** through the identical harness
 | collaborative | 0.149 | 0.297 |
 | hybrid (fixed RRF) | 0.146 | 0.280 |
 
-**On real data the learned reranker beats every single signal and fixed fusion**
-(LambdaMART > collaborative +12.9% nDCG@10; the zero-dep logistic also wins). This is
-the industry-standard result the near-oracle synthetic fixture *cannot* show — which
-is the correct behaviour, and the reason the synthetic set is documented as a fixture,
-not a credibility source. Both regimes reported; neither tuned to a desired outcome.
+**On real data, on nDCG@10, the learned reranker beats the best single signal
+(collaborative) at every tested hold-out ratio** (logistic +3–8%, LambdaMART
++5–13%; margin narrows as the hold-out grows), and also beats fixed RRF fusion. The
+zero-dep logistic is the more robust winner across ratios. Scope: this is an nDCG@10
+result — at rank-1 and on MRR at high hold-out the margin narrows/flips (see the
+sensitivity table in `real_data_movielens.md`); reported with sensitivity, not
+cherry-picked. This is the industry-standard result the near-oracle synthetic fixture
+*cannot* show — which is why the synthetic set is documented as a fixture, not a
+credibility source. Both regimes reported; neither tuned to a desired outcome.
 
 ## Consequences
 - `reranked` (logistic) is locked by the golden regression test; the LambdaMART
